@@ -1,0 +1,2 @@
+# pacal
+Simple shell calculator. 
