@@ -25,10 +25,10 @@ public class App {
     public static final Consumer<CalcState> MUL_FUNCTION = c -> c.setValue(c.getValue2()*c.getValue1());
     public static final Consumer<CalcState> DIV_FUNCTION = c -> c.setValue(c.getValue2()/c.getValue1());
 
-    private App( Map<String, Consumer<CalcState>> commands) {
-        this.state = new CalcState();
+    public App( Map<String, Consumer<CalcState>> commands, CalcState state ) {
         this.commands = commands;
         this.commands.put("help",s -> printCommands());
+        this.state = state;
     }
 
     public static void main(String[] args) throws IOException {
@@ -84,17 +84,23 @@ public class App {
         System.out.printf("[ v1=%f , v2=%f , mem=%f ]\n",state.getValue1(),state.getValue2(),state.getMem());
     }
 
-    private static App createBaseCalc() {
+    public static App createBaseCalc() {
         HashMap<String,Consumer<CalcState>> commands = new HashMap<>();
         commands.put("+",SUM_FUNCTION);
         commands.put("-",DIF_FUNCTION);
         commands.put("/",DIV_FUNCTION);
         commands.put("*",MUL_FUNCTION);
+        commands.put("square",App::square);//s -> App.square(s)
         commands.put("exit",CalcState::turnOff);
         commands.put("store",CalcState::store);
         commands.put("call",s -> s.setValue(s.getMem()));
         commands.put("clear",CalcState::reset);
         commands.put("delete",s -> s.setValue(0.0));
-        return new App(commands);
+        return new App(commands,new CalcState());
+    }
+
+    public static void square( CalcState s ) {
+        double value = s.getValue1();
+        s.setValue(value*value);
     }
 }
