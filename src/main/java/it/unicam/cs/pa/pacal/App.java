@@ -62,7 +62,7 @@ public class App {
 
     private void printCommands() {
         TreeSet<String> words = new TreeSet<>(commands.keySet());
-        String[] wordsArray = words.toArray(new String[words.size()]);
+        String[] wordsArray = words.toArray(new String[] {});
         System.out.println("Commands: "+ Arrays.toString(wordsArray));
     }
 
@@ -81,7 +81,7 @@ public class App {
     }
 
     public void printState() {
-        System.out.printf("[ v1=%f , v2=%f , mem=%f ]\n",state.getValue1(),state.getValue2(),state.getMem());
+        System.out.println(state.toString());
     }
 
     public static App createBaseCalc() {

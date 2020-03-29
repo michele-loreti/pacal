@@ -50,4 +50,9 @@ public class CalcState {
     public void turnOff() {
         this.status = false;
     }
+
+    @Override
+    public String toString() {
+        return "[ v1="+getValue1()+" , v2="+getValue2()+" , mem="+getMem()+"]\n";
+    }
 }
