@@ -35,7 +35,7 @@ public class App {
         createBaseCalc().start();
     }
 
-    private void start() throws IOException {
+    public void start() throws IOException {
         hello();
         BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
         while (state.isOn()) {
