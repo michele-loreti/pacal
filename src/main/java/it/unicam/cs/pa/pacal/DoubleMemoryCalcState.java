@@ -1,26 +1,19 @@
 package it.unicam.cs.pa.pacal;
 
-import java.util.HashMap;
-import java.util.function.Consumer;
-
-public class DoubleMemoryCalcState extends CalcState {
+public class DoubleMemoryCalcState extends BasicCalcState {
 
     private double mem1;
     private double mem2;
 
     public DoubleMemoryCalcState() {
         super();
-        init();
-    }
-
-    private void init() {
-        mem1 = 0.0;
-        mem2 = 0.0;
     }
 
     @Override
     public void reset() {
-        this.init();
+        super.reset();
+        mem1 = 0.0;
+        mem2 = 0.0;
     }
 
     public double getMemory1() {
@@ -39,10 +32,16 @@ public class DoubleMemoryCalcState extends CalcState {
         mem2 = getValue1();
     }
 
-    @Override
-    public String toString() {
-        return "[ v1="+getValue1()+" , v2="+getValue2()+" , mem1="+getMemory1()+" , mem2="+getMemory2()+"]\n";
+    public void call1() {
+        this.setValue(getMemory1());
     }
 
+    public void call2() {
+        this.setValue(getMemory2());
+    }
 
+    @Override
+    protected String stringOf() {
+        return super.stringOf()+" , mem1="+getMemory1()+" , mem2="+getMemory2();
+    }
 }

@@ -7,20 +7,26 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.*;
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 /**
  *
  */
-public class App<T extends CalcState> {
+public class App<T extends BasicCalcState> {
+
+    public enum CALCULATOR_TYPE {
+        BASIC, SIMPLE, EXTENDED, STACK
+    }
 
     private Map<String, Consumer<? super T>> commands;
     private T state;
 
-    public static final Consumer<CalcState> SUM_FUNCTION = c -> c.setValue(c.getValue2()+c.getValue1());
-    public static final Consumer<CalcState> DIF_FUNCTION = c -> c.setValue(c.getValue2()-c.getValue1());
-    public static final Consumer<CalcState> MUL_FUNCTION = c -> c.setValue(c.getValue2()*c.getValue1());
-    public static final Consumer<CalcState> DIV_FUNCTION = c -> c.setValue(c.getValue2()/c.getValue1());
+    public static final Consumer<BasicCalcState> SUM_FUNCTION = c -> c.setValue(c.getValue2()+c.getValue1());
+    public static final Consumer<BasicCalcState> DIF_FUNCTION = c -> c.setValue(c.getValue2()-c.getValue1());
+    public static final Consumer<BasicCalcState> MUL_FUNCTION = c -> c.setValue(c.getValue2()*c.getValue1());
+    public static final Consumer<BasicCalcState> DIV_FUNCTION = c -> c.setValue(c.getValue2()/c.getValue1());
 
     public App( Map<String, Consumer<? super T>> commands, T state ) {
         this.commands = commands;
@@ -29,8 +35,29 @@ public class App<T extends CalcState> {
     }
 
     public static void main(String[] args) throws IOException {
-        //createBaseCalc().start();
-        createDoubleMemApp().start();
+        if (args.length == 0) {
+            createBasicCalculator().start();
+        } else {
+            try {
+                Objects.requireNonNull(createCalculator(args[0])).start();
+            } catch (IllegalArgumentException e) {
+                System.err.println("Calculator "+args[0]+" is unknown!");
+            }
+        }
+    }
+
+    private static App<?> createCalculator(String code) {
+        switch (CALCULATOR_TYPE.valueOf(code.toUpperCase())) {
+            case BASIC:
+                return createBasicCalculator();
+            case SIMPLE:
+                return createSimpleCalculator();
+            case EXTENDED:
+                return createExtendedCalculator();
+            case STACK:
+                return createStackCalculator();
+        }
+        return null;
     }
 
     public void start() throws IOException {
@@ -82,42 +109,74 @@ public class App<T extends CalcState> {
         System.out.println(state.toString());
     }
 
-    public static App<CalcState> createBaseCalc() {
-        HashMap<String,Consumer<? super CalcState>> commands = new HashMap<>();
-        commands.put("+",SUM_FUNCTION);
-        commands.put("-",DIF_FUNCTION);
-        commands.put("/",DIV_FUNCTION);
-        commands.put("*",MUL_FUNCTION);
-        commands.put("square",App::square);//s -> App.square(s)
-        commands.put("exit",CalcState::turnOff);
-        commands.put("store",CalcState::store);
-        commands.put("call",s -> s.setValue(s.getMem()));
-        commands.put("clear",CalcState::reset);
-        commands.put("delete",s -> s.setValue(0.0));
-        return new App<CalcState>(commands,new CalcState());
+    public static <T extends BasicCalcState> void addSimpleMathFunctions(HashMap<String,Consumer<? super T>> commands) {
+        commands.put("+",createCommand(Double::sum));
+        commands.put("-",createCommand((x,y) -> x-y));
+        commands.put("/",createCommand((x,y) -> x/y));
+        commands.put("*",createCommand((x,y) -> x*y));
     }
 
-    public static App<DoubleMemoryCalcState> createDoubleMemApp() {
-        HashMap<String, Consumer<? super DoubleMemoryCalcState>> commands = new HashMap<>();
-        commands.put("+",App.SUM_FUNCTION);
-        commands.put("-",App.DIF_FUNCTION);
-        commands.put("/",App.DIV_FUNCTION);
-        commands.put("*",App.MUL_FUNCTION);
-        commands.put("square",App::square);//s -> App.square(s)
-        commands.put("exit",CalcState::turnOff);
+    public static <T extends BasicCalcState> void addComplexMathFunctions(HashMap<String,Consumer<? super T>> commands) {
+        commands.put("abs",createCommand(Math::abs));
+        commands.put("pow",createCommand(Math::pow));
+        commands.put("sqrt",createCommand(Math::sqrt));
+        commands.put("log",createCommand(Math::log));
+        commands.put("exp",createCommand(Math::exp));
+    }
+
+
+    public static <T extends BasicCalcState> void addControllingCommands(HashMap<String,Consumer<? super T>> commands) {
+        commands.put("exit", BasicCalcState::turnOff);
+        commands.put("delete",s -> s.setValue(0.0));
+        commands.put("clear",BasicCalcState::reset);
+    }
+
+    public static App<BasicCalcState> createBasicCalculator() {
+        HashMap<String,Consumer<? super BasicCalcState>> commands = new HashMap<>();
+        addSimpleMathFunctions(commands);
+        addControllingCommands(commands);
+        return new App<>(commands, new BasicCalcState());
+    }
+
+    public static App<SingleMemoryCalcState> createSimpleCalculator() {
+        HashMap<String,Consumer<? super SingleMemoryCalcState>> commands = new HashMap<>();
+        addSimpleMathFunctions(commands);
+        addControllingCommands(commands);
+        commands.put("store",SingleMemoryCalcState::store);
+        commands.put("call",SingleMemoryCalcState::call);
+        return new App<>(commands, new SingleMemoryCalcState());
+    }
+
+    public static App<DoubleMemoryCalcState> createExtendedCalculator() {
+        HashMap<String,Consumer<? super DoubleMemoryCalcState>> commands = new HashMap<>();
+        addSimpleMathFunctions(commands);
+        addControllingCommands(commands);
+        addComplexMathFunctions(commands);
         commands.put("store1",DoubleMemoryCalcState::storeToMem1);
         commands.put("store2",DoubleMemoryCalcState::storeToMem2);
-        commands.put("call",s -> s.setValue(s.getMem()));
-        commands.put("clear",CalcState::reset);
-        commands.put("delete",s -> s.setValue(0.0));
-        commands.put("log",s -> s.setValue(Math.log(s.getValue1())));
-        commands.put("sin",s -> s.setValue(Math.sin(s.getValue1())));
-        return new App<DoubleMemoryCalcState>(commands,new DoubleMemoryCalcState());
+        commands.put("call1",DoubleMemoryCalcState::call1);
+        commands.put("call2",DoubleMemoryCalcState::call2);
+        return new App<>(commands, new DoubleMemoryCalcState());
     }
 
-    public static void square( CalcState s ) {
-        double value = s.getValue1();
-        s.setValue(value*value);
+    public static App<StackMemoryState> createStackCalculator() {
+        HashMap<String,Consumer<? super StackMemoryState>> commands = new HashMap<>();
+        addSimpleMathFunctions(commands);
+        addControllingCommands(commands);
+        addComplexMathFunctions(commands);
+        commands.put("pop",StackMemoryState::pop);
+        commands.put("push",StackMemoryState::push);
+        return new App<>(commands, new StackMemoryState());
     }
+
+
+    public static Consumer<BasicCalcState> createCommand(Function<Double,Double> f ) {
+        return s -> s.setValue(f.apply(s.getValue1()));
+    }
+
+    public static Consumer<BasicCalcState> createCommand(BiFunction<Double,Double,Double> f) {
+        return s -> s.setValue(f.apply(s.getValue2(),s.getValue1()));
+    }
+
 
 }
