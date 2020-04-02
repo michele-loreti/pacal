@@ -6,33 +6,31 @@ package it.unicam.cs.pa.pacal;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.TreeSet;
+import java.util.*;
 import java.util.function.Consumer;
 
 /**
  *
  */
-public class App {
+public class App<T extends CalcState> {
 
-    private Map<String, Consumer<CalcState>> commands;
-    private CalcState state;
+    private Map<String, Consumer<? super T>> commands;
+    private T state;
 
     public static final Consumer<CalcState> SUM_FUNCTION = c -> c.setValue(c.getValue2()+c.getValue1());
     public static final Consumer<CalcState> DIF_FUNCTION = c -> c.setValue(c.getValue2()-c.getValue1());
     public static final Consumer<CalcState> MUL_FUNCTION = c -> c.setValue(c.getValue2()*c.getValue1());
     public static final Consumer<CalcState> DIV_FUNCTION = c -> c.setValue(c.getValue2()/c.getValue1());
 
-    public App( Map<String, Consumer<CalcState>> commands, CalcState state ) {
+    public App( Map<String, Consumer<? super T>> commands, T state ) {
         this.commands = commands;
         this.commands.put("help",s -> printCommands());
         this.state = state;
     }
 
     public static void main(String[] args) throws IOException {
-        createBaseCalc().start();
+        //createBaseCalc().start();
+        createDoubleMemApp().start();
     }
 
     public void start() throws IOException {
@@ -71,7 +69,7 @@ public class App {
             double value = Double.parseDouble(command);
             state.setValue(value);
         } catch (NumberFormatException e) {
-            Consumer<CalcState> action = commands.get(command);
+            Consumer<? super T> action = commands.get(command);
             if (action == null) {
                 System.err.println("Unknown command: "+command);
             } else {
@@ -84,8 +82,8 @@ public class App {
         System.out.println(state.toString());
     }
 
-    public static App createBaseCalc() {
-        HashMap<String,Consumer<CalcState>> commands = new HashMap<>();
+    public static App<CalcState> createBaseCalc() {
+        HashMap<String,Consumer<? super CalcState>> commands = new HashMap<>();
         commands.put("+",SUM_FUNCTION);
         commands.put("-",DIF_FUNCTION);
         commands.put("/",DIV_FUNCTION);
@@ -96,11 +94,30 @@ public class App {
         commands.put("call",s -> s.setValue(s.getMem()));
         commands.put("clear",CalcState::reset);
         commands.put("delete",s -> s.setValue(0.0));
-        return new App(commands,new CalcState());
+        return new App<CalcState>(commands,new CalcState());
+    }
+
+    public static App<DoubleMemoryCalcState> createDoubleMemApp() {
+        HashMap<String, Consumer<? super DoubleMemoryCalcState>> commands = new HashMap<>();
+        commands.put("+",App.SUM_FUNCTION);
+        commands.put("-",App.DIF_FUNCTION);
+        commands.put("/",App.DIV_FUNCTION);
+        commands.put("*",App.MUL_FUNCTION);
+        commands.put("square",App::square);//s -> App.square(s)
+        commands.put("exit",CalcState::turnOff);
+        commands.put("store1",DoubleMemoryCalcState::storeToMem1);
+        commands.put("store2",DoubleMemoryCalcState::storeToMem2);
+        commands.put("call",s -> s.setValue(s.getMem()));
+        commands.put("clear",CalcState::reset);
+        commands.put("delete",s -> s.setValue(0.0));
+        commands.put("log",s -> s.setValue(Math.log(s.getValue1())));
+        commands.put("sin",s -> s.setValue(Math.sin(s.getValue1())));
+        return new App<DoubleMemoryCalcState>(commands,new DoubleMemoryCalcState());
     }
 
     public static void square( CalcState s ) {
         double value = s.getValue1();
         s.setValue(value*value);
     }
+
 }
