@@ -1,11 +1,16 @@
 package it.unicam.cs.pa.pacal;
 
-public class SingleMemoryCalcState extends BasicCalcState {
+public class SingleMemoryCalcState<T extends CalcState> extends WrapperCalcState<T> {
 
     private double mem;
 
-    public SingleMemoryCalcState() {
-        super();
+    public SingleMemoryCalcState(T state) {
+        super(state);
+    }
+
+    @Override
+    protected void doReset() {
+        this.mem = 0.0;
     }
 
     public double getMemory( ) {
@@ -20,13 +25,5 @@ public class SingleMemoryCalcState extends BasicCalcState {
         this.mem = this.getValue1();
     }
 
-    public void reset() {
-        super.reset();
-        this.mem = 0.0;
-    }
 
-    @Override
-    protected String stringOf() {
-        return super.stringOf()+" , mem="+getMemory();
-    }
 }

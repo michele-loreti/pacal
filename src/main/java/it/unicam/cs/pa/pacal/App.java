@@ -3,9 +3,7 @@
  */
 package it.unicam.cs.pa.pacal;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.util.*;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
@@ -14,24 +12,19 @@ import java.util.function.Function;
 /**
  *
  */
-public class App<T extends BasicCalcState> {
+public class App<T extends CalcState> {
+
+    private final View<T> view;
 
     public enum CALCULATOR_TYPE {
-        BASIC, SIMPLE, EXTENDED, STACK
+        BASIC, SIMPLE, EXTENDED, STACK, SCIENTIFIC
     }
 
-    private Map<String, Consumer<? super T>> commands;
-    private T state;
+    private final Calculator<T> calculator;
 
-    public static final Consumer<BasicCalcState> SUM_FUNCTION = c -> c.setValue(c.getValue2()+c.getValue1());
-    public static final Consumer<BasicCalcState> DIF_FUNCTION = c -> c.setValue(c.getValue2()-c.getValue1());
-    public static final Consumer<BasicCalcState> MUL_FUNCTION = c -> c.setValue(c.getValue2()*c.getValue1());
-    public static final Consumer<BasicCalcState> DIV_FUNCTION = c -> c.setValue(c.getValue2()/c.getValue1());
-
-    public App( Map<String, Consumer<? super T>> commands, T state ) {
-        this.commands = commands;
-        this.commands.put("help",s -> printCommands());
-        this.state = state;
+    public App( View<T> view, Calculator<T> calculator ) {
+        this.calculator = calculator;
+        this.view = view;
     }
 
     public static void main(String[] args) throws IOException {
@@ -56,67 +49,25 @@ public class App<T extends BasicCalcState> {
                 return createExtendedCalculator();
             case STACK:
                 return createStackCalculator();
+            case SCIENTIFIC:
+                return createScientificCalculator();
         }
         return null;
     }
 
     public void start() throws IOException {
-        hello();
-        BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
-        while (state.isOn()) {
-            printState();
-            System.out.print(" > ");
-            System.out.flush();
-            String command = reader.readLine();
-            processCommand(command);
-        }
-        printGoodbye();
+        view.open(calculator);
+        view.close();
     }
 
-    private void printGoodbye() {
-        System.out.println("\n\nThank you for having used our calculator!");
-        System.out.println("See you next time!\n\n");
-    }
-
-    private void hello() {
-        System.out.println("******************************");
-        System.out.println("*         PACALC 0.1         *");
-        System.out.println("******************************");
-
-    }
-
-    private void printCommands() {
-        TreeSet<String> words = new TreeSet<>(commands.keySet());
-        String[] wordsArray = words.toArray(new String[] {});
-        System.out.println("Commands: "+ Arrays.toString(wordsArray));
-    }
-
-    private void processCommand(String command) {
-        try {
-            double value = Double.parseDouble(command);
-            state.setValue(value);
-        } catch (NumberFormatException e) {
-            Consumer<? super T> action = commands.get(command);
-            if (action == null) {
-                System.err.println("Unknown command: "+command);
-            } else {
-                action.accept(state);
-            }
-        }
-    }
-
-    public void printState() {
-        System.out.println(state.toString());
-    }
-
-    public static <T extends BasicCalcState> void addSimpleMathFunctions(HashMap<String,Consumer<? super T>> commands) {
+    public static <T extends CalcState> void addSimpleMathFunctions(HashMap<String,Consumer<? super T>> commands) {
         commands.put("+",createCommand(Double::sum));
         commands.put("-",createCommand((x,y) -> x-y));
         commands.put("/",createCommand((x,y) -> x/y));
         commands.put("*",createCommand((x,y) -> x*y));
     }
 
-    public static <T extends BasicCalcState> void addComplexMathFunctions(HashMap<String,Consumer<? super T>> commands) {
+    public static <T extends CalcState> void addComplexMathFunctions(HashMap<String,Consumer<? super T>> commands) {
         commands.put("abs",createCommand(Math::abs));
         commands.put("pow",createCommand(Math::pow));
         commands.put("sqrt",createCommand(Math::sqrt));
@@ -125,30 +76,35 @@ public class App<T extends BasicCalcState> {
     }
 
 
-    public static <T extends BasicCalcState> void addControllingCommands(HashMap<String,Consumer<? super T>> commands) {
-        commands.put("exit", BasicCalcState::turnOff);
-        commands.put("delete",s -> s.setValue(0.0));
-        commands.put("clear",BasicCalcState::reset);
+    public static <T extends CalcState> void addControllingCommands(HashMap<String,Consumer<? super T>> commands) {
+        commands.put("exit", CalcState::turnOff);
+        commands.put("delete", CalcState::delete);
+        commands.put("clear",CalcState::reset);
     }
 
-    public static App<BasicCalcState> createBasicCalculator() {
+    public static App<?> createBasicCalculator() {
         HashMap<String,Consumer<? super BasicCalcState>> commands = new HashMap<>();
         addSimpleMathFunctions(commands);
         addControllingCommands(commands);
-        return new App<>(commands, new BasicCalcState());
+        BasicCalcState state = new BasicCalcState();
+        MapBasedCalculator<BasicCalcState> calculator = new MapBasedCalculator<>(commands,state);
+        return new App<>(new ConsoleView<>(new BasicCalcStatePrinter()),calculator);
     }
 
-    public static App<SingleMemoryCalcState> createSimpleCalculator() {
-        HashMap<String,Consumer<? super SingleMemoryCalcState>> commands = new HashMap<>();
+    public static App<?> createSimpleCalculator() {
+        HashMap<String,Consumer<? super SingleMemoryCalcState<BasicCalcState>>> commands = new HashMap<>();
         addSimpleMathFunctions(commands);
         addControllingCommands(commands);
         commands.put("store",SingleMemoryCalcState::store);
         commands.put("call",SingleMemoryCalcState::call);
-        return new App<>(commands, new SingleMemoryCalcState());
+        SingleMemoryCalcState<BasicCalcState> state = new SingleMemoryCalcState<>( new BasicCalcState() );
+        MapBasedCalculator<SingleMemoryCalcState<BasicCalcState>> calculator = new MapBasedCalculator<>(commands,state);
+        SingleMemoryCalcStatePrinter<BasicCalcState> printer = new SingleMemoryCalcStatePrinter<>(new BasicCalcStatePrinter());
+        return new App<>(new ConsoleView<>(printer),calculator);
     }
 
-    public static App<DoubleMemoryCalcState> createExtendedCalculator() {
-        HashMap<String,Consumer<? super DoubleMemoryCalcState>> commands = new HashMap<>();
+    public static App<?> createExtendedCalculator() {
+        HashMap<String,Consumer<? super DoubleMemoryCalcState<BasicCalcState>>> commands = new HashMap<>();
         addSimpleMathFunctions(commands);
         addControllingCommands(commands);
         addComplexMathFunctions(commands);
@@ -156,25 +112,45 @@ public class App<T extends BasicCalcState> {
         commands.put("store2",DoubleMemoryCalcState::storeToMem2);
         commands.put("call1",DoubleMemoryCalcState::call1);
         commands.put("call2",DoubleMemoryCalcState::call2);
-        return new App<>(commands, new DoubleMemoryCalcState());
+        DoubleMemoryCalcState<BasicCalcState> state = new DoubleMemoryCalcState<>( new BasicCalcState() );
+        MapBasedCalculator<DoubleMemoryCalcState<BasicCalcState>> calculator = new MapBasedCalculator<>(commands,state);
+        DoubleMemoryCalcStatePrinter<BasicCalcState> printer = new DoubleMemoryCalcStatePrinter<>(new BasicCalcStatePrinter());
+        return new App<>(new ConsoleView<>(printer),calculator);
     }
 
-    public static App<StackMemoryState> createStackCalculator() {
-        HashMap<String,Consumer<? super StackMemoryState>> commands = new HashMap<>();
+    public static App<?> createStackCalculator() {
+        HashMap<String,Consumer<? super StackMemoryCalcState<BasicCalcState>>> commands = new HashMap<>();
         addSimpleMathFunctions(commands);
         addControllingCommands(commands);
         addComplexMathFunctions(commands);
-        commands.put("pop",StackMemoryState::pop);
-        commands.put("push",StackMemoryState::push);
-        return new App<>(commands, new StackMemoryState());
+        commands.put("pop", StackMemoryCalcState::pop);
+        commands.put("push", StackMemoryCalcState::push);
+        StackMemoryCalcState<BasicCalcState> state = new StackMemoryCalcState<>( new BasicCalcState() );
+        MapBasedCalculator<StackMemoryCalcState<BasicCalcState>> calculator = new MapBasedCalculator<>(commands,state);
+        StackMemoryCalcStatePrinter<BasicCalcState> printer = new StackMemoryCalcStatePrinter<>(new BasicCalcStatePrinter());
+        return new App<>(new ConsoleView<>(printer),calculator);
+    }
+
+    private static App<?> createScientificCalculator() {
+        HashMap<String,Consumer<? super StackMemoryCalcState<StackCalcState>>> commands = new HashMap<>();
+        addSimpleMathFunctions(commands);
+        addControllingCommands(commands);
+        addComplexMathFunctions(commands);
+        commands.put("pop", StackMemoryCalcState::pop);
+        commands.put("push", StackMemoryCalcState::push);
+        StackMemoryCalcState<StackCalcState> state = new StackMemoryCalcState<>( new StackCalcState() );
+        MapBasedCalculator<StackMemoryCalcState<StackCalcState>> calculator = new MapBasedCalculator<>(commands,state);
+        StackMemoryCalcStatePrinter<StackCalcState> printer = new StackMemoryCalcStatePrinter<>(new StackCalcStatePrinter());
+        return new App<>(new ConsoleView<>(printer),calculator);
     }
 
 
-    public static Consumer<BasicCalcState> createCommand(Function<Double,Double> f ) {
+
+    public static Consumer<CalcState> createCommand(Function<Double,Double> f ) {
         return s -> s.setValue(f.apply(s.getValue1()));
     }
 
-    public static Consumer<BasicCalcState> createCommand(BiFunction<Double,Double,Double> f) {
+    public static Consumer<CalcState> createCommand(BiFunction<Double,Double,Double> f) {
         return s -> s.setValue(f.apply(s.getValue2(),s.getValue1()));
     }
 
