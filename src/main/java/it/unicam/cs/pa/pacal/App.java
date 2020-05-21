@@ -3,17 +3,23 @@
  */
 package it.unicam.cs.pa.pacal;
 
+import javafx.application.Application;
+
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.*;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.logging.Logger;
 
 /**
  *
  */
 public class App<T extends CalcState> {
 
+    private static Logger logger = Logger.getLogger("it.unicam.cs.pa.pacal.App");
     private final View<T> view;
 
     public enum CALCULATOR_TYPE {
@@ -25,11 +31,12 @@ public class App<T extends CalcState> {
     public App( View<T> view, Calculator<T> calculator ) {
         this.calculator = calculator;
         this.view = view;
+        logger.info("Application Created.");
     }
 
     public static void main(String[] args) throws IOException {
         if (args.length == 0) {
-            createBasicCalculator().start();
+            launchGui();
         } else {
             try {
                 Objects.requireNonNull(createCalculator(args[0])).start();
@@ -39,7 +46,11 @@ public class App<T extends CalcState> {
         }
     }
 
-    private static App<?> createCalculator(String code) {
+    private static void launchGui() {
+        Application.launch(JavaFXPaCal.class);
+    }
+
+    public static App<?> createCalculator(String code) {
         switch (CALCULATOR_TYPE.valueOf(code.toUpperCase())) {
             case BASIC:
                 return createBasicCalculator();
@@ -56,8 +67,10 @@ public class App<T extends CalcState> {
     }
 
     public void start() throws IOException {
+        logger.info("Application Started.");
         view.open(calculator);
         view.close();
+        logger.info("Application Closed.");
     }
 
     public static <T extends CalcState> void addSimpleMathFunctions(HashMap<String,Consumer<? super T>> commands) {
@@ -89,6 +102,15 @@ public class App<T extends CalcState> {
         BasicCalcState state = new BasicCalcState();
         MapBasedCalculator<BasicCalcState> calculator = new MapBasedCalculator<>(commands,state);
         return new App<>(new ConsoleView<>(new BasicCalcStatePrinter()),calculator);
+    }
+
+    public static App<?> createBasicCalculator(InputStream is, OutputStream os) {
+        HashMap<String,Consumer<? super BasicCalcState>> commands = new HashMap<>();
+        addSimpleMathFunctions(commands);
+        addControllingCommands(commands);
+        BasicCalcState state = new BasicCalcState();
+        MapBasedCalculator<BasicCalcState> calculator = new MapBasedCalculator<>(commands,state);
+        return new App<>(new ConsoleView<>(is,os,new BasicCalcStatePrinter()),calculator);
     }
 
     public static App<?> createSimpleCalculator() {

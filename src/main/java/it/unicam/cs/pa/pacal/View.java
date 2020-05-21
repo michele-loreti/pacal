@@ -12,5 +12,4 @@ public interface View<T extends CalcState> {
 
     void close();
 
-
 }

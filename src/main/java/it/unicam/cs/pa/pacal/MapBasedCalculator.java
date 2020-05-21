@@ -19,14 +19,14 @@ public class MapBasedCalculator<T extends CalcState> implements Calculator<T> {
     }
 
     @Override
-    public void processCommand(String command) {
+    public void processCommand(String command) throws UnknownCommandException {
         try {
             double value = Double.parseDouble(command);
             state.setValue(value);
         } catch (NumberFormatException e) {
             Consumer<? super T> action = commands.get(command);
             if (action == null) {
-                System.err.println("Unknown command: "+command);
+                throw new UnknownCommandException(command);
             } else {
                 action.accept(state);
             }

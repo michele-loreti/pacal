@@ -1,6 +1,7 @@
 package it.unicam.cs.pa.pacal;
 
 public interface CalcState {
+
     double getValue1();
 
     double getValue2();

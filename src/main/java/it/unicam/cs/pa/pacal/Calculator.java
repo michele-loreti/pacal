@@ -5,7 +5,7 @@ import java.util.function.Consumer;
 
 public interface Calculator<T extends CalcState> {
 
-    void processCommand(String command);
+    void processCommand(String command) throws UnknownCommandException;
 
     boolean isOn();
 
